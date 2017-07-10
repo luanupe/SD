@@ -35,4 +35,8 @@ public class Calculadora extends Thread {
 		return this.operador;
 	}
 
+	public void shutdown(boolean force) {
+		
+	}
+
 }

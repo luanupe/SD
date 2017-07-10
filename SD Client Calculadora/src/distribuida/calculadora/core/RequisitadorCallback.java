@@ -1,6 +1,7 @@
 package distribuida.calculadora.core;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,22 +15,15 @@ import distribuidos.sistemas.requisicoes.Requisicao;
 import distribuidos.sistemas.requisicoes.RequisicaoCBInterface;
 import net.sf.json.JSONObject;
 
-public class RequisitadorCallback extends Thread implements RequisicaoCBInterface, Runnable {
+public class RequisitadorCallback extends Thread implements RequisicaoCBInterface {
 
-	public static final long TENTAR_NOVAMENTE = 5000;
-
-	/*  */
-
-	private ServidorCache cache;
-	private Map<String, Long> pings;
-	private Map<String, InterfaceResposta> respostas;
-
-	private Map<Requisicao, ServidorConhecido> historico;
+	private ServidorCache cache; // Cache de microserviços
 	private List<Requisicao> pendentes;
+	private Map<String, InterfaceResposta> respostas; // Respostas dos serviços
+	private Map<Requisicao, ServidorConhecido> historico;
 
 	public RequisitadorCallback() {
 		this.cache = new ServidorCache();
-		this.pings = new ConcurrentHashMap<String, Long>();
 		this.historico = new ConcurrentHashMap<Requisicao, ServidorConhecido>();
 		this.respostas = new HashMap<String, InterfaceResposta>();
 		this.pendentes = new CopyOnWriteArrayList<Requisicao>();
@@ -37,13 +31,13 @@ public class RequisitadorCallback extends Thread implements RequisicaoCBInterfac
 
 	@Override
 	public void init() {
+		// Microrespostas dos microserviços
 		this.respostas.put("pong", new RespostaPong());
 		this.respostas.put("adicao", new RespostaAdicao());
 		this.respostas.put("subtracao", new RespostaSubtracao());
 		this.respostas.put("fatorial", new RespostaFatorial());
 
-		// Inicia a Thread do Requisitador
-		this.start();
+		this.start(); // Inicia a Thread do Requisitador
 	}
 
 	public void run(String servico, JSONObject args, boolean... udp) {
@@ -55,106 +49,98 @@ public class RequisitadorCallback extends Thread implements RequisicaoCBInterfac
 		ClientController.instance().preparar(requisicao, (udp.length == 0));
 	}
 
-	@Override
-	public void run() {
-		ClientController controller = ClientController.instance();
-		for (Requisicao pendente : this.pendentes) {
-			if ((pendente.isTCP())) {
-				String servico = pendente.getServico();
-				ServidorConhecido server = this.cache.getServidor(servico);
-
-				if ((server == null)) {
-					// Calculadora.instance().getOperador().ping(servico);
-					this.controlePing(servico);
-				} else {
-					this.historico.put(pendente, server);
-					this.pendentes.remove(pendente);
-					controller.processarTCP(pendente, server.getHost(), server.getPorta());
-				}
-			} else { // Processa via UDP
-				this.pendentes.remove(pendente);
-				controller.processarUDP(pendente);
-			}
-		}
-
-		// Pausa a Thread
-		this.pausarThread();
-
-		// Chamada recursiva
-		this.run();
+	public synchronized void acordar() {
+		this.notifyAll();
 	}
 
-	private synchronized void controlePing(String servico) {
-		Long cache = this.pings.get(servico);
-		long agora = System.currentTimeMillis();
-
-		if ((cache == null) || ((agora - cache) > TENTAR_NOVAMENTE)) {
-			this.pings.put(servico, agora);
-			Calculadora.instance().getOperador().ping(servico);
-		}
-	}
-
-	/*
-	 * Se não tiver requisições pendentes para a Thread indefinidamente
-	 * se tiver requisições espera x segundos e tenta novamente.
+	/* CARACTERÍSTICA: TRANSPARÊNCIA DE LOCALIZAÇÃO (MICROSERVIÇOS)
 	 * CARACTERÍSTICA: TOLERÂNCIA A FALHAS
-	 */
-	private synchronized void pausarThread() {
+	 * 
+	 * Aqui é onde a mágica realmente acontece: todos as requisições
+	 * pendentes vão ficar sendo iteradas, se algum serviço não for
+	 * conhecido vai ser realizado o multicast UDP para encontrar
+	 * algum nó disponível, se der falhar no envio, a requisição vai
+	 * ser readicionada na fila de pendentes até que algum microserviço
+	 * esteja disponível. */
+	public void run() {
 		try {
-			if ((this.pendentes.isEmpty())) {
-				this.wait();
-			} else {
-				this.wait(RequisitadorCallback.TENTAR_NOVAMENTE);
+			ClientController controller = ClientController.instance();
+			while (true) {
+				Iterator<Requisicao> pendentes = this.pendentes.iterator();	
+				while (pendentes.hasNext()) {
+					Requisicao pendente = pendentes.next();
+					this.pendentes.remove(pendente);
+
+					if ((pendente.isTCP())) { // Processamento TCP
+						ServidorConhecido server = this.cache.getServidor(pendente.getServico());
+						if ((server == null)) { // Nenhum servidor pro microserviço
+							this.falha(pendente, "Nenhum microserviço localizado.");
+						} else {
+							this.historico.put(pendente, server);
+							controller.processarTCP(pendente, server.getHost(), server.getPorta());
+						}
+					} else { // Processamento UDP
+						controller.processarUDP(pendente);
+					}
+				}
+
+				synchronized (this) {
+					this.wait(5000);
+				}
 			}
 		} catch (InterruptedException e) {
-			
-		}
-	}
-
-	// Pra poder acordar a Thread de outros objetos
-	public synchronized void continuarThread() {
-		this.notify();
-	}
-
-	@Override
-	public void preparado(Requisicao requisicao) {
-		if ((this.pendentes.contains(requisicao) == false)) {
-			this.pendentes.add(requisicao);
-		}
-		this.continuarThread();
-	}
-
-	@Override
-	public void enviado(Requisicao requisicao) {
-		// TODO Requisição enviada com sucesso
-	}
-
-	@Override
-	public void falha(Requisicao requisicao) {
-		// Adiciona a requisição de volta na pilha
-		// CARACTERÍSTICA: TOLERÂNCIA A FALHAS
-
-		ServidorConhecido server = this.historico.get(requisicao);
-		if ((server != null)) {
-			this.getCache().remover(requisicao.getServico(), server);
-		}
-		this.preparado(requisicao);
-	}
-
-	/*
-	 * Todas as repostas que chegam da rede passam por aqui, então
-	 * é aqui que processa a resposta do microserviço.
-	 */
-	@Override
-	public void recebido(String cmd, JSONObject args) {
-		InterfaceResposta resposta = this.respostas.get(cmd);
-		if ((resposta != null)) {
-			resposta.run(args);
+			// TODO Interrompeu... o que fazer?
 		}
 	}
 
 	public ServidorCache getCache() {
 		return this.cache;
+	}
+
+	public int getQuantidadePendentes() {
+		return this.pendentes.size();
+	}
+
+	/* MÉTODOS DA INTERFACE CALLBACK */
+
+	// Adiciona na pilha, requisição pronta pra ser processada
+	public void preparado(Requisicao requisicao) {
+		ClientController.debug("Requisição #" + requisicao.getId() + " adicionada a fila.");
+		if ((this.pendentes.contains(requisicao) == false)) {
+			this.pendentes.add(requisicao);
+		}
+		this.acordar();
+	}
+
+	/* Enviado com sucesso, nao precisa fazer nada coloquei
+	 * somente uma mensagem no debug pra não ficar em branco */
+	public void sucesso(Requisicao requisicao) {
+		ClientController.debug("Requisição #" + requisicao.getId() + " enviada sem falhas.");
+	}
+
+	/* CARACTERÍSTICA: TOLERÂNCIA A FALHAS
+	 * Deu falha, pega o servidor e remove da cache pra
+	 * evitar novas requisições com falha e faz ping novamente
+	 * pra encontrar algum servidor com microserviço */
+	public void falha(Requisicao requisicao, String motivo) {
+		ClientController.debug("Requisição #" + requisicao.getId() + " falhou: " + motivo);
+		ServidorConhecido server = this.historico.get(requisicao);
+
+		if ((server != null)) {
+			this.getCache().remover(requisicao.getServico(), server);
+		}
+
+		this.cache.controlePing(requisicao.getServico());
+		this.preparado(requisicao); // Adiciona de volta na pilha
+	}
+
+	/* Todas as repostas que chegam da rede passam por aqui, então
+	 * é aqui que processa a resposta do microserviço. */
+	public void recebido(String cmd, JSONObject args) {
+		InterfaceResposta resposta = this.respostas.get(cmd);
+		if ((resposta != null)) {
+			resposta.run(args);
+		}
 	}
 
 }

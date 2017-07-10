@@ -12,24 +12,32 @@ import net.sf.json.JSONObject;
 
 public class ClientController {
 
+	public static final boolean DEBUG = false;
 	public static final Random SEED = new Random(System.currentTimeMillis());
 
-	/*  */
+	public static final void debug(String mensagem) {
+		if ((ClientController.DEBUG)) {
+			System.out.println(mensagem);
+		}
+	}
+
+	public static final void debugError(String mensagem) {
+		if ((ClientController.DEBUG)) {
+			System.err.println(mensagem);
+		}
+	}
+
+	/* Singleton */
 
 	private static ClientController INSTANCE;
 
-	/*
-	 * Acesso global sem precisar passar por parâmento, quase
-	 * uma classe padrão "sigleton"
-	 */
 	public static ClientController instance() {
 		return ClientController.INSTANCE;
 	}
 
-	/*  */
+	/* Fim Singleton */
 
-	// O callback é enviado pela própria calculadora
-	private RequisicaoCBInterface callback;
+	private RequisicaoCBInterface callback; // Interfdace implementada pela própria calculadora
 	private int contador;
 	private UDPServer udp;
 	private Map<String, TCPConexao> tcp;
@@ -48,33 +56,40 @@ public class ClientController {
 
 	public synchronized void preparar(JSONObject mensagem, boolean tcp) {
 		Requisicao requisicao = new Requisicao(++this.contador, mensagem, tcp);
-		this.getCallback().preparado(requisicao);
+		this.getCallback().preparado(requisicao); // Requisição pronta
 	}
 
-	/*
+	/* CARACTERÍSTICA: Tolerância a falhas
 	 * Client só envia UDP se for multicast, então não precisa
-	 * saber quem é o destinatário (host/porta).
-	 */
+	 * saber quem é o destinatário (host/porta)
+	 * 
+	 * Tenta enviar e confirma se houve falha (Exception)
+	 * ou foi enviado com sucesso */
 	public void processarUDP(Requisicao requisicao) {
 		try {
 			this.udp.enviar(requisicao);
-			this.getCallback().enviado(requisicao);
+			this.getCallback().sucesso(requisicao);
 		} catch (IOException e) {
-			this.getCallback().falha(requisicao);
+			this.getCallback().falha(requisicao, e.getMessage());
 		}
 	}
 
-	/*
+	/* CARACTERÍSTICA: Tolerância a falhas
 	 * Se for TCP precisa saber quem é o destinatário, e a camada da
 	 * calculadora que é responsável por definir pra onde a mensagem vai.
-	 */
+	 * 
+	 * Tenta conectar ao host:porta - Se não conseguir conectar ou der
+	 * falha pra enviar (Exception) vai avisar que falhou, se conseguir
+	 * vai avisar que teve sucesso */
 	public void processarTCP(Requisicao requisicao, String host, int porta) {
 		try {
 			TCPConexao conexao = this.conectar(host, porta);
 			conexao.enviar(requisicao);
-			this.getCallback().enviado(requisicao);
+			
+			// Confirma o sucesso no envio
+			this.getCallback().sucesso(requisicao);
 		} catch (IOException e) {
-			this.getCallback().falha(requisicao);
+			this.getCallback().falha(requisicao, e.getMessage()); // Tolerância a falha
 		}
 	}
 
@@ -82,15 +97,16 @@ public class ClientController {
 		StringBuilder info = new StringBuilder();
 		info.append(host).append(":").append(porta);
 
+		// Cria String de Conexão, exemplo: 127.0.0.1:1234
 		String server = info.toString();
-		TCPConexao conexao = this.tcp.get(server);
+		ClientController.debug(server + " > Conectando...");
 
+		// Verifica se já existe conexão pra evitar criar novos Sockets
+		TCPConexao conexao = this.tcp.get(info.toString());
 		if ((conexao == null)) {
 			conexao = new TCPConexao(host, porta);
+			conexao.init(); // Inicia socket, threads...
 			this.tcp.put(conexao.toString(), conexao);
-
-			// Inicia Socket, Streams e Thread
-			conexao.init();
 		}
 
 		return conexao;

@@ -11,7 +11,7 @@ import net.sf.json.JSONObject;
 public abstract class ConexaoAbstract extends Thread {
 
 	protected final void processar(String mensagem) {
-		// Converte em JSON
+		// Pega a entrada e converte em JSON
 		JSONObject input = JSONObject.fromObject(mensagem);
 
 		// Separa as informações importantes

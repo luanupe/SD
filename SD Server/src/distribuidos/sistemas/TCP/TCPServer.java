@@ -63,26 +63,25 @@ public class TCPServer extends Thread {
 	}
 
 	public JSONObject serialize() {
+		// Informações da máquina
 		JSONObject serialize = new JSONObject();
+		serialize.put("host", this.toString()); // IP:Porta
+		serialize.put("carga", this.clients.size()); // Quantidade de clientes
+		return serialize;// Retorna a informação pra enviar na rede
+	}
+
+	@Override
+	public String toString() {
 		StringBuilder host = new StringBuilder();
 
-		try {
-			// Tenta pegar o IP do adaptador da máquina
+		try { // Tenta pegar o IP do adaptador da máquina
 			host.append(InetAddress.getLocalHost().getHostAddress());
-		} catch (Exception e) {
-			// Pega o IP do servidor TCP
+		} catch (Exception e) { // Pega o IP do servidor TCP
 			host.append(this.server.getInetAddress().getHostAddress());
 		}
 
-		host.append(":");
-		host.append(this.porta);
-
-		// Adiciona a informação da máquina
-		serialize.put("host", host.toString());
-		serialize.put("carga", this.clients.size());
-
-		// Retorna a informação da máquina
-		return serialize;
+		host.append(":").append(this.porta);
+		return host.toString();
 	}
 
 }

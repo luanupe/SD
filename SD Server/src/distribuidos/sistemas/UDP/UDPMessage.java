@@ -7,8 +7,8 @@ import net.sf.json.JSONObject;
 
 public class UDPMessage extends Thread implements InterfaceUsuario {
 
-	private DatagramPacket packet;
 	private JSONObject request;
+	private DatagramPacket packet;
 
 	public UDPMessage(DatagramPacket packet) {
 		this.packet = packet;
@@ -37,11 +37,7 @@ public class UDPMessage extends Thread implements InterfaceUsuario {
 
 	@Override
 	public void enviar(String mensagem) {
-		JSONObject sender = this.request.getJSONObject("sender");
-		if ((sender != null) && (sender.isNullObject() == false)) {
-			String[] infos = sender.getString("host").split(":");
-			ServerController.instance().getUDP().enviar(mensagem, infos[0], Integer.parseInt(infos[1]));
-		}
+		ServerController.instance().getUDP().enviar(mensagem, packet.getAddress(), packet.getPort());
 	}
 
 }

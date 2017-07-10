@@ -29,6 +29,8 @@ public class Operador {
 		return args;
 	}
 
+	// Operações
+
 	public void somar(double... operandos) {
 		JSONObject args = new JSONObject();
 		args.put("operandos", this.getOperandos(operandos));

@@ -38,8 +38,8 @@ public class RespostaPong implements InterfaceResposta {
 			cache.adicionar(servicos.next(), servidor);
 		}
 
-		// Continua a Thread do Requisitador
-		requisitador.continuarThread();
+		// Volta a consumir as requisições
+		requisitador.acordar();
 	}
 
 }

@@ -8,9 +8,9 @@ public interface RequisicaoCBInterface {
 
 	public void preparado(Requisicao requisicao);
 
-	public void enviado(Requisicao requisicao);
+	public void sucesso(Requisicao requisicao);
 
-	public void falha(Requisicao requisicao);
+	public void falha(Requisicao requisicao, String motivo);
 
 	public void recebido(String cmd, JSONObject args);
 

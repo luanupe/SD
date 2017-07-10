@@ -14,42 +14,30 @@ public class TCPConexao extends ConexaoAbstract {
 
 	private Socket socket;
 	private BufferedReader br;
-
-	/*  */
-
-	private String host;
-	private int porta;
+	private InetSocketAddress destino;
 
 	public TCPConexao(String host, int porta) {
-		this.host = host;
-		this.porta = porta;
+		this.destino = new InetSocketAddress(host, porta);
 	}
 
 	@Override
 	public void init() throws IOException {
-		// Tenta se conectar ao servidor
-		if ((this.socket == null) || (this.socket.isConnected() == false)) {
-			// this.socket = new Socket(this.host, this.porta);
-			this.socket = new Socket();
-			this.socket.connect(new InetSocketAddress(this.host, this.porta), 500);
-		}
+		// Evita bloquear o Thread por muito tempo
+		// 500 millisegundos para criar o Socket
+		this.socket = new Socket();
+		this.socket.connect(this.destino, 500);
 
 		// Prepara o leitor de entradas
 		this.br = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-
-		// Inicia a Thread
-		this.start();
+		this.start(); // Inicia a Thread
 	}
 
 	@Override
 	public void shutdown() {
-		// Remove da lista
-		ClientController.instance().desconectar(this);
+		ClientController.debug(this.toString() + " > Fechando conexão.");
+		ClientController.instance().desconectar(this); // Remove da lista
 
-		// Para tudo
 		try {
-			this.socket.shutdownInput();
-			this.socket.shutdownOutput();
 			this.socket.close();
 		} catch (IOException e) {
 			// TODO O que fazer aqui?
@@ -64,9 +52,9 @@ public class TCPConexao extends ConexaoAbstract {
 				super.processar(mensagem);
 			}
 		} catch (Exception e) {
-			// e.printStackTrace();
+			ClientController.debugError(this.toString() + " > Falhou leitura: " + e.getMessage());
 		} finally {
-			this.shutdown();
+			this.shutdown(); // Pra que essa conexão não seja mais usada
 		}
 	}
 
@@ -83,7 +71,7 @@ public class TCPConexao extends ConexaoAbstract {
 
 	@Override
 	public String toString() {
-		return this.host + ":" + this.porta;
+		return this.destino.toString();
 	}
 
 }

@@ -4,9 +4,9 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import distribuidos.sistemas.core.ClientController;
 import distribuidos.sistemas.core.ConexaoAbstract;
 import distribuidos.sistemas.requisicoes.Requisicao;
-import net.sf.json.JSONObject;
 
 public class UDPServer extends ConexaoAbstract {
 
@@ -16,18 +16,20 @@ public class UDPServer extends ConexaoAbstract {
 	/*  */
 
 	private boolean running;
-	private String grupo;
-	private int porta;
+	private String grupoMulticast;
+	private int portaMulticast, portaLocal;
 
 	public UDPServer(String grupo, int porta) {
-		this.grupo = grupo;
-		this.porta = porta;
+		this.grupoMulticast = grupo;
+		this.portaMulticast = porta;
+		this.portaLocal = (porta + (1 + ClientController.SEED.nextInt(999)));
 	}
 
 	@Override
 	public void init() throws IOException {
-		this.destino = InetAddress.getByName(this.grupo);
-		this.server = new DatagramSocket(this.porta);
+		ClientController.debug("Escutando UDP na porta " + this.portaLocal);
+		this.destino = InetAddress.getByName(this.grupoMulticast);
+		this.server = new DatagramSocket(this.portaLocal);
 		this.running = true;
 		this.start();
 	}
@@ -62,41 +64,9 @@ public class UDPServer extends ConexaoAbstract {
 
 	@Override
 	public void enviar(Requisicao mensagem) throws IOException {
-		// O server precisa saber como a resposta vai voltar...
-		mensagem.getMensagem().put("sender", this.serialize());
-
-		// Client só envia UDP pra todo grupo multicast...
 		byte[] output = mensagem.getBytes();
-		DatagramPacket packet = new DatagramPacket(output, output.length, this.destino, this.porta);
+		DatagramPacket packet = new DatagramPacket(output, output.length, this.destino, this.portaMulticast);
 		this.server.send(packet);
-	}
-
-	public JSONObject serialize() {
-		JSONObject serialize = new JSONObject();
-		StringBuilder host = new StringBuilder();
-
-		try {
-			// Tenta pegar o IP do adaptador da máquina
-			host.append(InetAddress.getLocalHost().getHostAddress());
-		} catch (Exception e) {
-			// Pega o IP do servidor UDP
-			host.append(this.server.getInetAddress().getHostAddress());
-		}
-
-		host.append(":");
-		host.append(this.porta);
-
-		// Adiciona a informação da máquina
-		serialize.put("host", host.toString());
-
-		// Retorna a informação da máquina
-		return serialize;
-	}
-
-	/* GETTERS */
-
-	public String getGrupo() {
-		return this.grupo;
 	}
 
 }

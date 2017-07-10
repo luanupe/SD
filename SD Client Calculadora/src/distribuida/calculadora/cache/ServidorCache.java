@@ -3,6 +3,8 @@ package distribuida.calculadora.cache;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import distribuida.calculadora.core.Calculadora;
+
 public class ServidorCache {
 
 	public static final int EXPIRAR_MILISEGUNDOS = 5000; // TTL
@@ -10,9 +12,11 @@ public class ServidorCache {
 	/*  */
 
 	private Map<String, Map<String, ServidorConhecido>> cache;
+	private Map<String, Long> pings; // Evitar inundar o multicast
 
 	public ServidorCache() {
 		this.cache = new ConcurrentHashMap<String, Map<String, ServidorConhecido>>();
+		this.pings = new ConcurrentHashMap<String, Long>();
 	}
 
 	public ServidorConhecido getServidor(String servico) {
@@ -51,6 +55,18 @@ public class ServidorCache {
 		Map<String, ServidorConhecido> servers = this.cache.get(servico);
 		if ((servers != null)) {
 			servers.remove(servidor.toString());
+		}
+	}
+
+	/* Evitar inundar a rede com solicitações repetidas de
+	 * ping, evitar Denial of Service nos servidores */
+	public synchronized void controlePing(String servico) {
+		Long cache = this.pings.get(servico);
+		long agora = System.currentTimeMillis();
+
+		if ((cache == null) || ((agora - cache) > ServidorCache.EXPIRAR_MILISEGUNDOS)) {
+			this.pings.put(servico, agora);
+			Calculadora.instance().getOperador().ping(servico);
 		}
 	}
 
