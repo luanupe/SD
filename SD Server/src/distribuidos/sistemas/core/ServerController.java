@@ -38,7 +38,7 @@ public class ServerController {
 
 		// Serviços
 
-		this.requisicoes.init();
+		this.getRequisicoes().init();
 		this.getEventos().init();
 		this.getEventos().run("ligar");
 	}
@@ -48,7 +48,7 @@ public class ServerController {
 			System.out.println("RECEBENDO: " + nome + ": " + args);
 		}
 
-		this.requisicoes.run(usuario, nome, args);
+		this.getRequisicoes().run(usuario, nome, args);
 	}
 
 	public void shutdown() {

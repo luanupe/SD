@@ -18,8 +18,8 @@ public class CalculadoraController {
 	private String grupo;
 	private int udp, tcp;
 
-	public CalculadoraController(String grupoUDP, int portaUDP, int portaTCP) {
-		this.listener = new RequisicoesListener();
+	public CalculadoraController(String[] disponiveis, String grupoUDP, int portaUDP, int portaTCP) {
+		this.listener = new RequisicoesListener(disponiveis);
 		this.grupo = grupoUDP;
 		this.udp = portaUDP;
 		this.tcp = portaTCP;
@@ -32,6 +32,9 @@ public class CalculadoraController {
 
 		this.controller = new ServerController(this.listener, this.grupo, this.udp, this.tcp);
 		this.controller.init();
+
+		// Exibir os serviços
+		System.out.println("Microserviços: " + this.listener.serialize());
 	}
 
 	public void enviar(InterfaceUsuario usuario, String cmd, JSONObject args) {
