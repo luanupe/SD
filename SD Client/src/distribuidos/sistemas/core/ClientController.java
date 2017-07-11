@@ -12,7 +12,7 @@ import net.sf.json.JSONObject;
 
 public class ClientController {
 
-	public static final boolean DEBUG = false;
+	public static boolean DEBUG = false;
 	public static final Random SEED = new Random(System.currentTimeMillis());
 
 	public static final void debug(String mensagem) {
@@ -59,6 +59,13 @@ public class ClientController {
 		this.getCallback().preparado(requisicao); // Requisição pronta
 	}
 
+	public void shutdown() {
+		this.udp.shutdown();
+		for (TCPConexao conexao : this.tcp.values()) {
+			conexao.shutdown();
+		}
+	}
+
 	/* CARACTERÍSTICA: Tolerância a falhas
 	 * Client só envia UDP se for multicast, então não precisa
 	 * saber quem é o destinatário (host/porta)
@@ -94,19 +101,18 @@ public class ClientController {
 	}
 
 	private TCPConexao conectar(String host, int porta) throws IOException {
+		// Cria String de Conexão, exemplo: 127.0.0.1:1234
 		StringBuilder info = new StringBuilder();
 		info.append(host).append(":").append(porta);
-
-		// Cria String de Conexão, exemplo: 127.0.0.1:1234
-		String server = info.toString();
-		ClientController.debug(server + " > Conectando...");
 
 		// Verifica se já existe conexão pra evitar criar novos Sockets
 		TCPConexao conexao = this.tcp.get(info.toString());
 		if ((conexao == null)) {
+			ClientController.debug(info.toString() + " > Conectando...");
+			
 			conexao = new TCPConexao(host, porta);
 			conexao.init(); // Inicia socket, threads...
-			this.tcp.put(conexao.toString(), conexao);
+			this.tcp.put(info.toString(), conexao);
 		}
 
 		return conexao;

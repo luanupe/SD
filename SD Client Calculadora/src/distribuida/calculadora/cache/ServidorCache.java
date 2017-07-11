@@ -7,7 +7,7 @@ import distribuida.calculadora.core.Calculadora;
 
 public class ServidorCache {
 
-	public static final int EXPIRAR_MILISEGUNDOS = 5000; // TTL
+	public static final int EXPIRAR_MILISEGUNDOS = 60000; // TTL
 
 	/*  */
 

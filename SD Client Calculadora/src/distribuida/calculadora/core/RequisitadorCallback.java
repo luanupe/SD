@@ -130,7 +130,7 @@ public class RequisitadorCallback extends Thread implements RequisicaoCBInterfac
 			this.getCache().remover(requisicao.getServico(), server);
 		}
 
-		this.cache.controlePing(requisicao.getServico());
+		Calculadora.instance().getOperador().ping(requisicao.getServico());
 		this.preparado(requisicao); // Adiciona de volta na pilha
 	}
 

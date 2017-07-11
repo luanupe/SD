@@ -36,6 +36,7 @@ public class UDPServer extends ConexaoAbstract {
 
 	@Override
 	public void shutdown() {
+		this.running = false;
 		this.server.close();
 	}
 
