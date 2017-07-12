@@ -1,7 +1,6 @@
 package distribuida.calculadora.core;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +35,7 @@ public class RequisitadorCallback extends Thread implements RequisicaoCBInterfac
 		this.respostas.put("adicao", new RespostaAdicao());
 		this.respostas.put("subtracao", new RespostaSubtracao());
 		this.respostas.put("fatorial", new RespostaFatorial());
+		this.respostas.put("quadrado", new RespostaQuadrado());
 
 		this.start(); // Inicia a Thread do Requisitador
 	}
@@ -66,26 +66,24 @@ public class RequisitadorCallback extends Thread implements RequisicaoCBInterfac
 		try {
 			ClientController controller = ClientController.instance();
 			while (true) {
-				Iterator<Requisicao> pendentes = this.pendentes.iterator();	
-				while (pendentes.hasNext()) {
-					Requisicao pendente = pendentes.next();
-					this.pendentes.remove(pendente);
-
+				for (Requisicao pendente : this.pendentes) {
 					if ((pendente.isTCP())) { // Processamento TCP
 						ServidorConhecido server = this.cache.getServidor(pendente.getServico());
 						if ((server == null)) { // Nenhum servidor pro microserviço
 							this.falha(pendente, "Nenhum microserviço localizado.");
 						} else {
+							this.pendentes.remove(pendente);
 							this.historico.put(pendente, server);
 							controller.processarTCP(pendente, server.getHost(), server.getPorta());
 						}
 					} else { // Processamento UDP
+						this.pendentes.remove(pendente);
 						controller.processarUDP(pendente);
 					}
 				}
 
 				synchronized (this) {
-					this.wait(5000);
+					this.wait(2000);
 				}
 			}
 		} catch (InterruptedException e) {
@@ -101,21 +99,33 @@ public class RequisitadorCallback extends Thread implements RequisicaoCBInterfac
 		return this.pendentes.size();
 	}
 
-	/* MÉTODOS DA INTERFACE CALLBACK */
-
-	// Adiciona na pilha, requisição pronta pra ser processada
-	public void preparado(Requisicao requisicao) {
+	private void adicionarPendente(Requisicao requisicao) {
 		ClientController.debug("Requisição #" + requisicao.getId() + " adicionada a fila.");
 		if ((this.pendentes.contains(requisicao) == false)) {
 			this.pendentes.add(requisicao);
 		}
-		this.acordar();
+	}
+
+	private void removerCache(Requisicao requisicao) {
+		ServidorConhecido server = this.historico.get(requisicao);
+		if ((server != null)) {
+			this.getCache().remover(requisicao.getServico(), server);
+		}
+	}
+
+	/* MÉTODOS DA INTERFACE CALLBACK */
+
+	// Adiciona na pilha, requisição pronta pra ser processada
+	public void preparado(Requisicao requisicao) {
+		this.adicionarPendente(requisicao);
+		this.acordar(); // Para o wait da Thread
 	}
 
 	/* Enviado com sucesso, nao precisa fazer nada coloquei
 	 * somente uma mensagem no debug pra não ficar em branco */
 	public void sucesso(Requisicao requisicao) {
 		ClientController.debug("Requisição #" + requisicao.getId() + " enviada sem falhas.");
+		this.pendentes.remove(requisicao);
 	}
 
 	/* CARACTERÍSTICA: TOLERÂNCIA A FALHAS
@@ -124,14 +134,9 @@ public class RequisitadorCallback extends Thread implements RequisicaoCBInterfac
 	 * pra encontrar algum servidor com microserviço */
 	public void falha(Requisicao requisicao, String motivo) {
 		ClientController.debug("Requisição #" + requisicao.getId() + " falhou: " + motivo);
-		ServidorConhecido server = this.historico.get(requisicao);
-
-		if ((server != null)) {
-			this.getCache().remover(requisicao.getServico(), server);
-		}
-
+		this.removerCache(requisicao);
+		this.adicionarPendente(requisicao); // Coloca de volta na pilha
 		Calculadora.instance().getOperador().ping(requisicao.getServico());
-		this.preparado(requisicao); // Adiciona de volta na pilha
 	}
 
 	/* Todas as repostas que chegam da rede passam por aqui, então

@@ -1,7 +1,6 @@
 package distribuida.calculadora.core;
 
 import java.io.IOException;
-
 import distribuidos.sistemas.core.ClientController;
 
 public class Calculadora extends Thread {
@@ -33,6 +32,9 @@ public class Calculadora extends Thread {
 		Calculadora.INSTANCE = this;
 		this.controller.init();
 		this.terminal.init();
+
+		// Ping inicial
+		this.operador.ping();
 	}
 
 	public Operador getOperador() {

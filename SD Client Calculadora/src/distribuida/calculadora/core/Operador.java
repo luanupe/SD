@@ -43,15 +43,13 @@ public class Operador {
 		this.getRequisitador().run("subtrair", args);
 	}
 
-	public void multiplicar(double... operandos) {
-		// TODO
+	public void quadrado(double a) {
+		JSONObject operador = new JSONObject();
+		operador.put("operador", a);
+		this.getRequisitador().run("quadrado", operador);
 	}
 
-	public void dividir(double a, double b) {
-		// TODO
-	}
-
-	public void fatorial(int a) {
+	public void fatorial(double a) {
 		JSONObject operador = new JSONObject();
 		operador.put("operador", a);
 		this.getRequisitador().run("fatorial", operador);

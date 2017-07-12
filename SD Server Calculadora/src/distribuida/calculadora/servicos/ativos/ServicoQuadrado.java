@@ -16,7 +16,10 @@ public class ServicoQuadrado extends ServicoAbstrato {
 
 		// Informações que vão voltar pro cliente
 		StringBuilder expressao = new StringBuilder();
-		double resultado = Math.pow(operador, 2);
+		expressao.append(operador).append("^").append(operador);
+
+		// Calcula o resultado
+		double resultado = (operador * operador);
 
 		// Prepara a resposta e envia
 		JSONObject quadrado = new JSONObject();

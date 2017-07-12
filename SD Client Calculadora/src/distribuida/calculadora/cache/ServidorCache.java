@@ -1,9 +1,13 @@
 package distribuida.calculadora.cache;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import distribuida.calculadora.core.Calculadora;
+import distribuidos.sistemas.core.ClientController;
 
 public class ServidorCache {
 
@@ -20,25 +24,41 @@ public class ServidorCache {
 	}
 
 	public ServidorConhecido getServidor(String servico) {
-		Map<String, ServidorConhecido> servers = this.cache.get(servico);
-		ServidorConhecido servidor = null;
+		if ((this.cache.containsKey(servico) == false)) {
+			return null; // Nenhum servidor com esse microserviço
+		}
 
-		if ((servers != null)) {
-			for (ServidorConhecido server : servers.values()) {
-				if ((server.isExpirado() == false)) {
-					if ((servidor == null) || (server.getCarga() < servidor.getCarga())) {
-						servidor = server;
-					}
-				} else {
-					servers.remove(server.toString());
+		// Pega na cache
+		Collection<ServidorConhecido> servers = this.cache.get(servico).values();
+
+		// Sorteadores
+		List<ServidorConhecido> candidatos = new ArrayList<ServidorConhecido>();
+		ServidorConhecido candidato = null;
+
+		// Procura os servidores
+		for (ServidorConhecido servidor : servers) {
+			if ((servidor.isExpirado())) { // Expirou, remove da cache
+				servers.remove(servidor.toString());
+			} else {
+				if ((candidato == null) || (servidor.getCarga() <= candidato.getCarga())) {
+					candidato = servidor;
+					candidatos.add(candidato);
 				}
 			}
 		}
 
-		return servidor;
+		ClientController.debug("Cache do serviço '" + servico + "': " + candidatos.size());
+
+		// Sorteia algum da lista
+		if ((candidatos.isEmpty() == false)) {
+			return candidatos.get(ClientController.SEED.nextInt(candidatos.size()));
+		}
+
+		// Retorna o candidado padrão
+		return candidato;
 	}
 
-	public void adicionar(String servico, ServidorConhecido servidor) {
+	public synchronized void adicionar(String servico, ServidorConhecido servidor) {
 		Map<String, ServidorConhecido> servers = this.cache.get(servico);
 
 		// Lista de cache não existe

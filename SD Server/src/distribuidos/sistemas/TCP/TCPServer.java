@@ -40,7 +40,7 @@ public class TCPServer extends Thread {
 					client.start();
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
+				// TODO 
 			}
 		}
 	}

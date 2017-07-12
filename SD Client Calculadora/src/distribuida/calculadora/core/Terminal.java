@@ -3,7 +3,6 @@ package distribuida.calculadora.core;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-
 import distribuidos.sistemas.core.ClientController;
 
 public class Terminal extends Thread {
@@ -63,10 +62,10 @@ public class Terminal extends Thread {
 
 	private void controlar(String[] entradas) {
 		if ((entradas[0].equals("auto"))) {
-			if ((entradas.length <= 0)) {
-				System.out.println("Defina a quantidade de testes para executar.");
+			if ((entradas.length <= 2)) {
+				System.out.println("Defina a quantidade de testes e o delay para executar.");
 			} else {
-				this.auto(Integer.parseInt(entradas[1]));
+				this.auto(Integer.parseInt(entradas[1]), Integer.parseInt(entradas[2]));
 			}
 		} else if ((entradas[0].equals("sair"))) {
 			Calculadora.instance().shutdown(true);
@@ -85,22 +84,26 @@ public class Terminal extends Thread {
 		}
 	}
 
-	private void auto(int quantidade) {
+	private void auto(int quantidade, int delay) {
 		try {
 			for (int i = 1; i <= quantidade; ++i) {
 				ClientController.debug("TESTE AUTOMÁTICO: " + i + " / " + quantidade);
 				
 				// Somar
 				this.operador.somar(i, i+1, 1+2);
-				Thread.sleep(2000);
+				Thread.sleep(delay);
 				
 				// Subtrair
 				this.operador.subtrair(i+2, i+1, i);
-				Thread.sleep(2000);
+				Thread.sleep(delay);
 				
 				// Fatorial
 				this.operador.fatorial(i);
-				Thread.sleep(2000);
+				Thread.sleep(delay);
+
+				// Quadrado
+				this.operador.quadrado(i);
+				Thread.sleep(delay);
 			}
 		} catch (InterruptedException e) {
 			
@@ -129,7 +132,11 @@ public class Terminal extends Thread {
 			this.operador.subtrair(operandos);
 		} else if ((operacao.equals("fat"))) {
 			for (double operando : operandos) {
-				this.operador.fatorial((int) operando); 
+				this.operador.fatorial(operando); 
+			}
+		} else if ((operacao.equals("pow"))) {
+			for (double operando : operandos) {
+				this.operador.quadrado(operando); 
 			}
 		}
 	}

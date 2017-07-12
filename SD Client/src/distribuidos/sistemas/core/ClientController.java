@@ -90,32 +90,16 @@ public class ClientController {
 	 * vai avisar que teve sucesso */
 	public void processarTCP(Requisicao requisicao, String host, int porta) {
 		try {
-			TCPConexao conexao = this.conectar(host, porta);
-			conexao.enviar(requisicao);
+			TCPConexao conexao = new TCPConexao(host, porta);
+			ClientController.debug(conexao.toString() + " > Conectando...");
+			conexao.init(); // Inicia socket, threads...
+			conexao.enviar(requisicao); // Envia a mensagem
 			
 			// Confirma o sucesso no envio
 			this.getCallback().sucesso(requisicao);
 		} catch (IOException e) {
 			this.getCallback().falha(requisicao, e.getMessage()); // Tolerância a falha
 		}
-	}
-
-	private TCPConexao conectar(String host, int porta) throws IOException {
-		// Cria String de Conexão, exemplo: 127.0.0.1:1234
-		StringBuilder info = new StringBuilder();
-		info.append(host).append(":").append(porta);
-
-		// Verifica se já existe conexão pra evitar criar novos Sockets
-		TCPConexao conexao = this.tcp.get(info.toString());
-		if ((conexao == null)) {
-			ClientController.debug(info.toString() + " > Conectando...");
-			
-			conexao = new TCPConexao(host, porta);
-			conexao.init(); // Inicia socket, threads...
-			this.tcp.put(info.toString(), conexao);
-		}
-
-		return conexao;
 	}
 
 	public void desconectar(TCPConexao conexao) {

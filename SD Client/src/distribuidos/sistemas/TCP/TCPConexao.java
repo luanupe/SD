@@ -25,7 +25,7 @@ public class TCPConexao extends ConexaoAbstract {
 		// Evita bloquear o Thread por muito tempo
 		// 500 millisegundos para criar o Socket
 		this.socket = new Socket();
-		this.socket.connect(this.destino, 500);
+		this.socket.connect(this.destino, 2000);
 
 		// Prepara o leitor de entradas
 		this.br = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
@@ -48,7 +48,8 @@ public class TCPConexao extends ConexaoAbstract {
 	public void run() {
 		try {
 			// Lê uma String (entrada) e processa
-			for (String mensagem; ((mensagem = this.br.readLine()) != null); ) {
+			String mensagem = this.br.readLine();
+			if ((mensagem != null)) {
 				super.processar(mensagem);
 			}
 		} catch (Exception e) {
